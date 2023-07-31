@@ -1,67 +1,65 @@
-import crypto from 'crypto';
-import type {trackType} from '../types';
-
-const md5 = (data: string, type: crypto.Encoding = 'ascii') => {
-  const md5sum = crypto.createHash('md5');
-  md5sum.update(data.toString(), type);
-  return md5sum.digest('hex');
-};
-
-export const getSongFileName = ({MD5_ORIGIN, SNG_ID, MEDIA_VERSION}: trackType, quality: number) => {
-  const step1 = [MD5_ORIGIN, quality, SNG_ID, MEDIA_VERSION].join('¤');
-
-  let step2 = md5(step1) + '¤' + step1 + '¤';
-  while (step2.length % 16 > 0) step2 += ' ';
-
-  return crypto.createCipheriv('aes-128-ecb', 'jo6aey6haid2Teih', '').update(step2, 'ascii', 'hex');
-};
+import { md5 } from "./md5";
+import { Blowfish } from "egoroof-blowfish";
+import { Buffer } from "./buffer.js";
 
 const getBlowfishKey = (trackId: string) => {
-  const SECRET = 'g4el58wc' + '0zvf9na1';
-  const idMd5 = md5(trackId);
-  let bfKey = '';
-  for (let i = 0; i < 16; i++) {
-    bfKey += String.fromCharCode(idMd5.charCodeAt(i) ^ idMd5.charCodeAt(i + 16) ^ SECRET.charCodeAt(i));
-  }
-  return bfKey;
+	const SECRET = "g4el58wc" + "0zvf9na1";
+	const idMd5 = md5(trackId);
+	let bfKey = "";
+	for (let i = 0; i < 16; i++) {
+		bfKey += String.fromCharCode(idMd5.charCodeAt(i) ^ idMd5.charCodeAt(i + 16) ^ SECRET.charCodeAt(i));
+	}
+	return bfKey;
 };
 
-const decryptChunk = (chunk: Buffer, blowFishKey: string) => {
-  const cipher = crypto.createDecipheriv('bf-cbc', blowFishKey, Buffer.from([0, 1, 2, 3, 4, 5, 6, 7]));
-  cipher.setAutoPadding(false);
-  return cipher.update(chunk as any, 'binary', 'binary') + cipher.final();
-};
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
  *
  * @param source Downloaded song from `getTrackDownloadUrl`
  * @param trackId Song ID as string
  */
-export const decryptDownload = (source: Buffer, trackId: string) => {
-  // let part_size = 0x1800;
-  let chunk_size = 2048;
-  const blowFishKey = getBlowfishKey(trackId);
-  let i = 0;
-  let position = 0;
+export const decryptDownload = async (_source: ArrayBuffer, trackId: string, progressCallback?: (n: number) => void) => {
+	const source = Buffer.from(_source);
+	// let part_size = 0x1800;
+	let chunk_size = 2048;
+	const blowFishKey = getBlowfishKey(trackId);
 
-  const destBuffer = Buffer.alloc(source.length);
-  destBuffer.fill(0);
+	const bf = new Blowfish(blowFishKey, Blowfish.MODE.CBC, Blowfish.PADDING.SPACES); // only key isn't optional
+	bf.setIv(Buffer.from([0, 1, 2, 3, 4, 5, 6, 7]));
 
-  while (position < source.length) {
-    const chunk = Buffer.alloc(chunk_size);
-    const size = source.length - position;
-    chunk_size = size >= 2048 ? 2048 : size;
+	let i = 0;
+	let position = 0;
 
-    let chunkString;
-    chunk.fill(0);
-    source.copy(chunk, 0, position, position + chunk_size);
-    if (i % 3 > 0 || chunk_size < 2048) chunkString = chunk.toString('binary');
-    else chunkString = decryptChunk(chunk, blowFishKey);
+	const source_len = source.length;
 
-    destBuffer.write(chunkString, position, chunkString.length, 'binary');
-    position += chunk_size;
-    i++;
-  }
+	const destBuffer = Buffer.alloc(source_len);
+	destBuffer.fill(0);
 
-  return destBuffer;
+	let progressNum = 0;
+
+	while (position < source_len) {
+		const chunk = Buffer.alloc(chunk_size);
+		const size = source_len - position;
+		chunk_size = size >= 2048 ? 2048 : size;
+
+		let chunkString;
+		chunk.fill(0);
+		source.copy(chunk, 0, position, position + chunk_size);
+		if (i % 3 > 0 || chunk_size < 2048) chunkString = chunk.toString("binary");
+		else chunkString = Buffer.from(bf.decode(chunk, Blowfish.TYPE.UINT8_ARRAY)).toString("binary");
+
+		destBuffer.write(chunkString, position, chunkString.length, "binary");
+
+		position += chunk_size;
+		await sleep(0);
+		const progressNumNew = Math.floor((position / source_len) * 100);
+		if (progressNumNew != progressNum) {
+			progressCallback?.((progressNum = progressNumNew));
+		}
+
+		i++;
+	}
+
+	return destBuffer;
 };

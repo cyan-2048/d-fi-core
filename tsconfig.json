@@ -1,14 +1,21 @@
 {
-  "compilerOptions": {
-    "outDir": "dist",
-    "module": "commonjs",
-    "target": "es2019", // Node.js 12
-    "moduleResolution": "node",
-    "strict": true,
-    "declaration": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true
-  },
-  "include": ["src"]
+	"compilerOptions": {
+		"outDir": "dist",
+		"module": "ESNext",
+		"target": "es2019", // Node.js 12
+		"allowJs": true,
+		"noEmit": true,
+		"allowImportingTsExtensions": true,
+		"moduleResolution": "node",
+		"strict": true,
+		"declaration": true,
+		"esModuleInterop": true,
+		"skipLibCheck": true,
+		"forceConsistentCasingInFileNames": true,
+		"baseUrl": ".",
+		"paths": {
+			"api": ["src/index.ts"]
+		}
+	},
+	"include": ["src"]
 }
