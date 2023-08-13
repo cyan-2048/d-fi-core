@@ -12,14 +12,25 @@ const getBlowfishKey = (trackId: string) => {
 	return bfKey;
 };
 
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+/**
+ *
+ * @returns Promise that resolves after setimmediate
+ */
+const sleep = () =>
+	new Promise((resolve) => {
+		// if setImmediate is not available, use setTimeout
+		if (typeof setImmediate === "undefined") return setTimeout(resolve, 0);
+		setImmediate(resolve);
+	});
 
 /**
  *
  * @param source Downloaded song from `getTrackDownloadUrl`
  * @param trackId Song ID as string
+ * @param progressCallback Callback that gets called with the progress in percent
+ * @param _async Whether to use async or sync, sync will block the main thread, set to false when using webworker
  */
-export const decryptDownload = async (_source: ArrayBuffer, trackId: string, progressCallback?: (n: number) => void) => {
+export const decryptDownload = async (_source: ArrayBuffer, trackId: string, progressCallback?: (n: number) => void, _async = true) => {
 	const source = Buffer.from(_source);
 	// let part_size = 0x1800;
 	let chunk_size = 2048;
@@ -52,7 +63,9 @@ export const decryptDownload = async (_source: ArrayBuffer, trackId: string, pro
 		destBuffer.write(chunkString, position, chunkString.length, "binary");
 
 		position += chunk_size;
-		await sleep(0);
+
+		if (_async) await sleep();
+
 		const progressNumNew = Math.floor((position / source_len) * 100);
 		if (progressNumNew != progressNum) {
 			progressCallback?.((progressNum = progressNumNew));
