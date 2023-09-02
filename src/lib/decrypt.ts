@@ -101,7 +101,7 @@ export const decryptDownload = async (_source: ArrayBuffer, trackId: string, pro
 		if (i % 3 > 0 || chunk_size < 2048) chunkToWrite = chunk;
 		else chunkToWrite = bf.decode(chunk, Blowfish.TYPE.UINT8_ARRAY);
 
-		console.log(position, source_len);
+		// console.log(position, source_len);
 
 		destBuffer.set(chunk_size == 2048 ? chunkToWrite : chunkToWrite.slice(0, chunk_size), position);
 
