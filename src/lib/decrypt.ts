@@ -64,12 +64,13 @@ const createEmptyBuffer = (len: number) => new Uint8Array(new ArrayBuffer(len));
 
 /**
  *
- * @param source Downloaded song from `getTrackDownloadUrl`
+ * @param _source Downloaded song from `getTrackDownloadUrl`
  * @param trackId Song ID as string
  * @param progressCallback Callback that gets called with the progress in percent
  * @param _async Whether to use async or sync, sync will block the main thread, set to false when using webworker
+ * @param abort Callback that gets called to check if the decryption should be aborted
  */
-export const decryptDownload = async (_source: ArrayBuffer, trackId: string, progressCallback?: (n: number) => void, _async = true) => {
+export const decryptDownload = async (_source: ArrayBuffer, trackId: string, progressCallback?: (n: number) => void, _async = true, abort?: () => boolean) => {
 	const source = new Uint8Array(_source);
 	//const source = new Uint8Array(_source);
 	// let part_size = 0x1800;
@@ -115,6 +116,8 @@ export const decryptDownload = async (_source: ArrayBuffer, trackId: string, pro
 		if (progressNumNew != progressNum) {
 			progressCallback?.((progressNum = progressNumNew));
 		}
+
+		if (abort && abort()) throw new Error("aborted");
 
 		i++;
 	}
